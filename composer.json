@@ -1,5 +1,6 @@
 {
     "require": {
-        "egulias/email-validator": "^4.0"
+        "egulias/email-validator": "^4.0",
+        "phpoffice/phpspreadsheet": "^4.1"
     }
 }

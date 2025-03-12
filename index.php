@@ -293,7 +293,7 @@ if (isset($_POST['submit_csv'])) {
             // fgetcsv($handle, 1000, ";");
 
             // Defina o tamanho do lote
-            $batchSize = 2000;
+            $batchSize = 25000;
             $countLote = 0;
 
             while (($data = fgetcsv($handle, 1000, ";")) !== false) {
@@ -369,54 +369,260 @@ function existeEmail(PDO $pdo, $email)
     $alreadyExists = $stmtCheck->fetchColumn();
     return ($alreadyExists > 0);
 }
+
+
+// Verifica se foi solicitada a exportação
+if (isset($_GET['export'])) {
+    // O tipo de exportação pode ser 'valid', 'invalid' ou 'all'
+    $exportType = $_GET['export'];
+    $filename = "";
+    switch ($exportType) {
+        case 'valid':
+            $query = "SELECT * FROM emails WHERE is_valid = 1";
+            $filename = "valid_emails.csv";
+            break;
+        case 'invalid':
+            $query = "SELECT * FROM emails WHERE is_valid = 0";
+            $filename = "invalid_emails.csv";
+            break;
+        case 'all':
+            $query = "SELECT * FROM emails";
+            $filename = "all_emails.csv";
+            break;
+        default:
+            exit("Tipo de exportação inválido.");
+    }
+    
+    // Execute a query para obter os registros desejados
+    $stmt = $pdo->prepare($query);
+    $stmt->execute();
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Define os headers para o CSV
+header('Content-Type: text/csv; charset=utf-8');
+header('Content-Disposition: attachment; filename="'.$filename.'"');
+
+// Abre a "saída" para escrita
+$output = fopen('php://output', 'w');
+
+// Se houver resultados, escreve o cabeçalho (keys) e os dados
+if (!empty($results)) {
+    // Cabeçalho: pega as chaves do primeiro registro
+    fputcsv($output, array_keys($results[0]), ';'); // <- delimitador ponto-e-vírgula
+
+    foreach ($results as $row) {
+        fputcsv($output, $row, ';'); // <- delimitador ponto-e-vírgula
+    }
+}
+
+fclose($output);
+exit;
+
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Cadastro e Consulta de E-mails</title>
+    <title>Validador de E-mails</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f8f8f8;
+            color: #333;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 6px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #444;
+            margin-bottom: 15px;
+        }
+        /* Layout: duas colunas para formulários */
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+        .column {
+            flex: 1;
+            min-width: 300px;
+            margin-right: 20px;
+        }
+        .column:last-child {
+            margin-right: 0;
+        }
+        form {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        form input[type="text"],
+        form input[type="file"] {
+            width: 100%;
+            padding: 6px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        form input[type="submit"] {
+            padding: 8px 15px;
+            background-color: #007bff;
+            color: #fff;
+            border: 1px solid #007bff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        form input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+        .export-list {
+            margin: 20px 0;
+        }
+        .export-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        .export-list li {
+            display: inline-block;
+            margin-right: 10px;
+        }
+        .export-list li a {
+            color: #007bff;
+            text-decoration: none;
+            padding: 6px 12px;
+            border: 1px solid #007bff;
+            border-radius: 4px;
+        }
+        .export-list li a:hover {
+            background-color: #007bff;
+            color: #fff;
+        }
+        .search-section {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .search-section input[type="text"] {
+            width: 300px;
+            padding: 6px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .search-section input[type="submit"] {
+            padding: 6px 12px;
+            margin-right: 5px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #eee;
+        }
+        p {
+            margin: 10px 0;
+        }
+        p[style*="color:green"] {
+            background-color: #d4edda;
+            padding: 10px;
+            border-left: 4px solid #28a745;
+        }
+        p[style*="color:red"] {
+            background-color: #f8d7da;
+            padding: 10px;
+            border-left: 4px solid #dc3545;
+        }
+        p[style*="color:orange"] {
+            background-color: #fff3cd;
+            padding: 10px;
+            border-left: 4px solid #ffc107;
+        }
+        p[style*="color:blue"] {
+            background-color: #cce5ff;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
 </head>
 <body>
-    <h1>Inserir E-mail Manualmente</h1>
-    <form action="" method="post">
-        <label for="cnpj">CNPJ:</label>
-        <input type="text" name="cnpj" id="cnpj" required>
-        <br><br>
-        <label for="email_01">E-mail:</label>
-        <input type="text" name="email_01" id="email_01" required>
-        <br><br>
-        <input type="submit" name="submit_single" value="Salvar">
-    </form>
+<div class="container">
+    <h1>Validador de E-mails</h1>
 
-    <hr>
+    <div class="row">
+        <!-- Coluna 1: Inserir E-mail Manualmente -->
+        <div class="column">
+            <h2>Inserir E-mail Manualmente</h2>
+            <form action="" method="post">
+                <label for="cnpj">CNPJ:</label>
+                <input type="text" name="cnpj" id="cnpj" required>
 
-    <h1>Importar CSV</h1>
-    <form action="" method="post" enctype="multipart/form-data">
-        <label for="csv_file">Selecione o arquivo CSV:</label>
-        <input type="file" name="csv_file" id="csv_file" accept=".csv">
-        <br><br>
-        <input type="submit" name="submit_csv" value="Importar CSV">
-    </form>
+                <label for="email_01">E-mail:</label>
+                <input type="text" name="email_01" id="email_01" required>
 
-    <hr>
+                <input type="submit" name="submit_single" value="Salvar">
+            </form>
+        </div>
 
-    <h1>Consulta de E-mails</h1>
-    <form method="get" action="">
-        <label for="consulta_email">Pesquisar por e-mail:</label>
-        <input type="text" name="consulta_email" id="consulta_email" placeholder="Digite parte do e-mail">
-        <br><br>
-        <input type="submit" name="action" value="Pesquisar">
-        <input type="submit" name="action" value="Mostrar Válidos">
-        <input type="submit" name="action" value="Mostrar Inválidos">
-        <input type="submit" name="action" value="Mostrar Todos">
-    </form>
+        <!-- Coluna 2: Importar CSV -->
+        <div class="column">
+            <h2>Importar CSV</h2>
+            <form action="" method="post" enctype="multipart/form-data">
+                <label for="csv_file">Selecione o arquivo CSV:</label>
+                <input type="file" name="csv_file" id="csv_file" accept=".csv">
+
+                <input type="submit" name="submit_csv" value="Importar CSV">
+            </form>
+        </div>
+    </div>
+
+    <div class="export-list">
+        <h2>Exportar Dados</h2>
+        <ul>
+            <li><a href="?export=valid">Exportar E-mails Válidos</a></li>
+            <li><a href="?export=invalid">Exportar E-mails Inválidos</a></li>
+            <li><a href="?export=all">Exportar Todos os E-mails</a></li>
+        </ul>
+    </div>
+
+    <div class="search-section">
+        <h2>Consulta de E-mails</h2>
+        <form method="get" action="">
+            <label for="consulta_email">Pesquisar por e-mail:</label>
+            <input type="text" name="consulta_email" id="consulta_email" placeholder="Digite parte do e-mail">
+            <br><br>
+            <input type="submit" name="action" value="Pesquisar">
+            <input type="submit" name="action" value="Mostrar Válidos">
+            <input type="submit" name="action" value="Mostrar Inválidos">
+            <input type="submit" name="action" value="Mostrar Todos">
+        </form>
+    </div>
 
     <br>
     <?php
-    /************************************************
-     * PROCESSA A CONSULTA DE E-MAILS (via GET)
-     ************************************************/
+    // PROCESSA A CONSULTA DE E-MAILS (via GET)
     if (isset($_GET['action'])) {
         $action = $_GET['action'];
         $query = "";
@@ -444,7 +650,7 @@ function existeEmail(PDO $pdo, $email)
 
             if ($results) {
                 echo "<h2>Resultados da Consulta:</h2>";
-                echo "<table border='1' cellpadding='5'>";
+                echo "<table>";
                 echo "<tr>
                         <th>ID</th>
                         <th>CNPJ</th>
@@ -474,5 +680,6 @@ function existeEmail(PDO $pdo, $email)
         }
     }
     ?>
+</div>
 </body>
 </html>
